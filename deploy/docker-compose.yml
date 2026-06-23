@@ -1,0 +1,29 @@
+# Minimal clawbus broker deployment.
+#   docker compose -f deploy/docker-compose.yml up -d
+# The broker listens on ws://localhost:18791 and persists rooms/registry to a volume.
+# Default rooms ("agentes", "equipo") are seeded automatically on first start.
+
+services:
+  clawbus-broker:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: clawbus-broker:latest
+    container_name: clawbus-broker
+    restart: unless-stopped
+    environment:
+      CLAWBUS_STATE_DIR: /var/lib/clawbus
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "127.0.0.1:18791:18791"
+    volumes:
+      - clawbus_data:/var/lib/clawbus
+    networks:
+      - clawbus-net
+
+networks:
+  clawbus-net:
+    name: clawbus-net
+
+volumes:
+  clawbus_data:

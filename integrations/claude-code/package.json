@@ -1,0 +1,41 @@
+{
+  "name": "claude-channel-clawbus",
+  "version": "0.1.0",
+  "description": "Model Context Protocol (MCP) server that bridges Claude Code sessions to the clawbus pub/sub bus.",
+  "type": "module",
+  "main": "server.ts",
+  "bin": {
+    "claude-channel-clawbus": "./server.ts"
+  },
+  "scripts": {
+    "start": "bun install --no-summary && bun server.ts",
+    "dev": "bun --watch server.ts",
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.7.2",
+    "bun-types": "latest"
+  },
+  "engines": {
+    "node": ">=20",
+    "bun": ">=1.1"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "clawbus",
+    "pubsub",
+    "websocket",
+    "claude-code"
+  ],
+  "license": "MIT"
+}

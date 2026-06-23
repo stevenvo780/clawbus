@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+
+# Node
+node_modules/
+*.log
+
+# Test / tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# clawbus runtime state
+.state/
+*.sqlite
+*.sqlite-*
+registry.json
+rooms.json
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

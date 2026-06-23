@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "clawbus"
+version = "0.1.0"
+description = "Inter-agent message bus for AI agents across processes, containers, and hosts"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+    "websockets",
+    "httpx",
+    "python-telegram-bot",
+]
+
+[project.scripts]
+clawbus = "clawbus.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["clawbus*"]
