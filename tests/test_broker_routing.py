@@ -17,6 +17,8 @@ from clawbus import (
     PUBLISH,
     DELIVER,
     HEARTBEAT,
+    ALIVE,
+    DEAD,
     from_json,
     to_json,
     new_msg_id,
@@ -84,6 +86,94 @@ async def _recv_event(ws: websockets.ClientConnection, timeout: float = 5) -> di
     """Recibe un evento JSONL con timeout."""
     line = await asyncio.wait_for(ws.recv(), timeout=timeout)
     return from_json(line)
+
+
+class _FakeSocket:
+    """Socket en memoria que permite cerrar cada conexión sin usar la red."""
+
+    def __init__(self) -> None:
+        self.incoming: asyncio.Queue[str | None] = asyncio.Queue()
+        self.outgoing: asyncio.Queue[str] = asyncio.Queue()
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self) -> str:
+        line = await self.incoming.get()
+        if line is None:
+            raise StopAsyncIteration
+        return line
+
+    async def send(self, line: str) -> None:
+        await self.outgoing.put(line)
+
+    async def recv(self) -> str:
+        return await self.outgoing.get()
+
+    async def close(self) -> None:
+        await self.incoming.put(None)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("old_alias,new_alias", [
+    ("carol", "carol"),
+    ("Álex", "alex"),
+    ("ＡＬＥＸ", "Alex"),
+])
+async def test_reconnect_old_socket_close_preserves_new_connection(
+    tmp_path, old_alias: str, new_alias: str,
+) -> None:
+    """Cerrar A1 no borra A2 aunque sus aliases normalicen a la misma identidad."""
+    registry = Registry(str(tmp_path))
+    registry.add_or_update_room(Room(name="equipo", telegram_chat_id=0, bot_token_ref="test"))
+    broker = Broker(registry, LoopGuard())
+    old_socket, new_socket = _FakeSocket(), _FakeSocket()
+    old_task = asyncio.create_task(broker.handle_client(old_socket))
+    new_task = asyncio.create_task(broker.handle_client(new_socket))
+
+    async def register(ws: _FakeSocket, alias: str) -> str:
+        await ws.incoming.put(to_json({
+            "type": HELLO, "participant": alias, "auth": "test-token",
+        }))
+        ack = await _recv_event(ws)
+        assert ack["status"] == "ok"
+        await ws.incoming.put(to_json({"type": SUBSCRIBE, "room": "equipo"}))
+        assert (await _recv_event(ws))["status"] == "subscribed"
+        return ack["participant"]
+
+    try:
+        alias = await register(old_socket, old_alias)
+        assert await register(new_socket, new_alias) == alias
+        participant = registry.get_participant(alias)
+        assert participant is not None
+        assert broker.connections[alias] is new_socket
+        assert participant.state == ALIVE
+
+        await old_socket.close()
+        await asyncio.wait_for(old_task, timeout=5)
+
+        assert broker.connections.get(alias) is new_socket
+        assert registry.get_participant(alias) is participant
+        assert participant.state == ALIVE
+        assert Registry(str(tmp_path)).get_participant(alias).state == ALIVE
+
+        msg = _make_msg(from_="bridge", to=[alias], body="after reconnect")
+        await broker._fan_out_deliver("equipo", msg)
+        deliver = await _recv_event(new_socket)
+        assert deliver["type"] == DELIVER
+        assert deliver["msg"]["id"] == msg.id
+        assert old_socket.outgoing.empty()
+
+        await new_socket.close()
+        await asyncio.wait_for(new_task, timeout=5)
+
+        assert alias not in broker.connections
+        assert participant.state == DEAD
+        assert Registry(str(tmp_path)).get_participant(alias).state == DEAD
+    finally:
+        old_task.cancel()
+        new_task.cancel()
+        await asyncio.gather(old_task, new_task, return_exceptions=True)
 
 
 # ── Broker fixture ──────────────────────────────────────────────────────────

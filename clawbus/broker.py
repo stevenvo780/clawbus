@@ -104,7 +104,8 @@ class Broker:
         except websockets.exceptions.ConnectionClosed:
             pass
         finally:
-            if participant_alias and participant_alias in self.connections:
+            # Un socket anterior no debe desconectar al participante reconectado.
+            if participant_alias and self.connections.get(participant_alias) is websocket:
                 del self.connections[participant_alias]
                 # Marcar como offline
                 participant = self.registry.get_participant(participant_alias)
